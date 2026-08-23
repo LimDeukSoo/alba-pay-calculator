@@ -1,28 +1,84 @@
 (function () {
   'use strict';
 
-  var REC_KEY = 'alba_records_v1';
-  var SET_KEY = 'alba_settings_v1';
+  var EMP_KEY = 'alba_employees_v1';
+  var CUR_KEY = 'alba_current_employee_v1';
+  var SHARED_KEY = 'alba_shared_settings_v1';
+  var REC_PREFIX = 'alba_records_v1_';
+
+  // legacy (single-employee) keys, migrated on first load
+  var LEGACY_REC_KEY = 'alba_records_v1';
+  var LEGACY_SET_KEY = 'alba_settings_v1';
+
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-  // ---------- storage ----------
-  function loadRecords() {
-    try { return JSON.parse(localStorage.getItem(REC_KEY)) || {}; }
+  function genId() {
+    return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  // ---------- storage: employees & shared settings ----------
+  function loadEmployees() {
+    try { return JSON.parse(localStorage.getItem(EMP_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveEmployees(list) { localStorage.setItem(EMP_KEY, JSON.stringify(list)); }
+
+  function loadSharedSettings() {
+    var defaults = { weekStart: 1 };
+    try { return Object.assign(defaults, JSON.parse(localStorage.getItem(SHARED_KEY)) || {}); }
+    catch (e) { return defaults; }
+  }
+  function saveSharedSettings(s) { localStorage.setItem(SHARED_KEY, JSON.stringify(s)); }
+
+  function loadRecordsFor(empId) {
+    try { return JSON.parse(localStorage.getItem(REC_PREFIX + empId)) || {}; }
     catch (e) { return {}; }
   }
-  function saveRecords(r) { localStorage.setItem(REC_KEY, JSON.stringify(r)); }
+  function saveRecordsFor(empId, recs) { localStorage.setItem(REC_PREFIX + empId, JSON.stringify(recs)); }
 
-  function loadSettings() {
-    var defaults = { hourlyWage: 10320, name: '', weekStart: 1 };
-    try {
-      var s = JSON.parse(localStorage.getItem(SET_KEY));
-      return Object.assign(defaults, s || {});
-    } catch (e) { return defaults; }
+  function migrateIfNeeded() {
+    if (localStorage.getItem(EMP_KEY)) return;
+
+    var legacySettings = null, legacyRecords = null;
+    try { legacySettings = JSON.parse(localStorage.getItem(LEGACY_SET_KEY)); } catch (e) {}
+    try { legacyRecords = JSON.parse(localStorage.getItem(LEGACY_REC_KEY)); } catch (e) {}
+
+    var list;
+    if (legacySettings || legacyRecords) {
+      var id = genId();
+      list = [{
+        id: id,
+        name: (legacySettings && legacySettings.name) || '직원1',
+        hourlyWage: (legacySettings && legacySettings.hourlyWage) || 10320
+      }];
+      saveRecordsFor(id, legacyRecords || {});
+      saveSharedSettings({ weekStart: (legacySettings && legacySettings.weekStart != null) ? legacySettings.weekStart : 1 });
+      localStorage.setItem(CUR_KEY, id);
+      localStorage.removeItem(LEGACY_REC_KEY);
+      localStorage.removeItem(LEGACY_SET_KEY);
+    } else {
+      list = [1, 2, 3].map(function (n) { return { id: genId(), name: '직원' + n, hourlyWage: 10320 }; });
+      saveSharedSettings({ weekStart: 1 });
+      localStorage.setItem(CUR_KEY, list[0].id);
+    }
+    saveEmployees(list);
   }
-  function saveSettings(s) { localStorage.setItem(SET_KEY, JSON.stringify(s)); }
 
-  var records = loadRecords();
-  var settings = loadSettings();
+  migrateIfNeeded();
+
+  var employees = loadEmployees();
+  var sharedSettings = loadSharedSettings();
+  var currentEmployeeId = localStorage.getItem(CUR_KEY);
+  if (!employees.some(function (e) { return e.id === currentEmployeeId; })) {
+    currentEmployeeId = employees[0].id;
+    localStorage.setItem(CUR_KEY, currentEmployeeId);
+  }
+  var records = loadRecordsFor(currentEmployeeId);
+
+  function getCurrentEmployee() {
+    return employees.find(function (e) { return e.id === currentEmployeeId; });
+  }
+  function persistRecords() { saveRecordsFor(currentEmployeeId, records); }
 
   var today = new Date();
   var viewYear = today.getFullYear();
@@ -57,12 +113,12 @@
   // ---------- week grouping & 주휴수당 ----------
   function getWeekStartDate(dateObj) {
     var day = dateObj.getDay();
-    var ws = settings.weekStart;
+    var ws = sharedSettings.weekStart;
     var diff = (day - ws + 7) % 7;
     return addDays(dateObj, -diff);
   }
 
-  function computeWeeklyPays() {
+  function computeWeeklyPays(wage) {
     var weeks = {};
     Object.keys(records).forEach(function (dateStr) {
       var d = parseDate(dateStr);
@@ -76,14 +132,14 @@
       var hours = w.totalMinutes / 60;
       var end = addDays(w.start, 6);
       var eligible = hours >= 15;
-      var pay = eligible ? Math.round(Math.min(hours, 40) / 40 * 8 * settings.hourlyWage) : 0;
+      var pay = eligible ? Math.round(Math.min(hours, 40) / 40 * 8 * wage) : 0;
       return { start: w.start, end: end, hours: hours, eligible: eligible, pay: pay };
     });
   }
 
   // ---------- payslip ----------
   function buildPayslip(year, month) {
-    var wage = settings.hourlyWage;
+    var wage = getCurrentEmployee().hourlyWage;
     var monthStr = year + '-' + pad(month + 1);
 
     var dayItems = Object.keys(records)
@@ -96,7 +152,7 @@
         return { type: 'day', date: dateStr, rec: rec, minutes: minutes, pay: pay };
       });
 
-    var weekItems = computeWeeklyPays()
+    var weekItems = computeWeeklyPays(wage)
       .filter(function (w) { return w.eligible && w.end.getFullYear() === year && w.end.getMonth() === month; })
       .map(function (w) { return { type: 'week', date: fmtDate(w.end), week: w }; });
 
@@ -125,6 +181,20 @@
   }
 
   // ---------- rendering ----------
+  function renderEmployeeBar() {
+    var bar = document.getElementById('employeeBar');
+    bar.innerHTML = employees.map(function (e) {
+      var cls = 'employee-pill' + (e.id === currentEmployeeId ? ' active' : '');
+      return '<button type="button" class="' + cls + '" data-id="' + e.id + '">' + escapeHtml(e.name) + '</button>';
+    }).join('') + '<button type="button" id="addEmployeeBtn" class="employee-pill add-pill">+ 직원 추가</button>';
+  }
+
+  function renderEmployeeFields() {
+    var emp = getCurrentEmployee();
+    document.getElementById('empName').value = emp.name;
+    document.getElementById('hourlyWage').value = emp.hourlyWage;
+  }
+
   function renderMonthLabels() {
     var label = viewYear + '년 ' + (viewMonth + 1) + '월';
     document.getElementById('entryMonthLabel').textContent = label;
@@ -133,6 +203,7 @@
 
   function renderRecordList() {
     var monthStr = viewYear + '-' + pad(viewMonth + 1);
+    var wage = getCurrentEmployee().hourlyWage;
     var dates = Object.keys(records).filter(function (d) { return d.indexOf(monthStr) === 0; }).sort();
     var container = document.getElementById('recordList');
     if (dates.length === 0) {
@@ -142,7 +213,7 @@
     container.innerHTML = dates.map(function (dateStr) {
       var rec = records[dateStr];
       var d = parseDate(dateStr);
-      var pay = calcDailyPay(rec, settings.hourlyWage);
+      var pay = calcDailyPay(rec, wage);
       return '' +
         '<div class="record-item" data-date="' + dateStr + '">' +
           '<div class="record-main">' +
@@ -159,6 +230,7 @@
   }
 
   function renderPayslip() {
+    var emp = getCurrentEmployee();
     var ps = buildPayslip(viewYear, viewMonth);
     var container = document.getElementById('payslip');
     var lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -167,8 +239,8 @@
       '<div class="payslip-header">' +
         '<h2>급여명세서</h2>' +
         '<p>지급대상기간: ' + viewYear + '년 ' + (viewMonth + 1) + '월 1일 ~ ' + viewYear + '년 ' + (viewMonth + 1) + '월 ' + lastDay + '일</p>' +
-        (settings.name ? '<p>이름 / 사업장: ' + escapeHtml(settings.name) + '</p>' : '') +
-        '<p>시급: ' + money(settings.hourlyWage) + '</p>' +
+        '<p>이름: ' + escapeHtml(emp.name) + '</p>' +
+        '<p>시급: ' + money(emp.hourlyWage) + '</p>' +
       '</div>';
 
     if (ps.items.length === 0) {
@@ -214,6 +286,8 @@
   }
 
   function renderAll() {
+    renderEmployeeBar();
+    renderEmployeeFields();
     renderMonthLabels();
     renderRecordList();
     renderPayslip();
@@ -237,32 +311,67 @@
     renderAll();
   }
 
+  function switchEmployee(id) {
+    currentEmployeeId = id;
+    localStorage.setItem(CUR_KEY, id);
+    records = loadRecordsFor(id);
+    resetForm();
+    renderAll();
+  }
+
+  function addEmployee() {
+    var n = employees.length + 1;
+    var emp = { id: genId(), name: '직원' + n, hourlyWage: 10320 };
+    employees.push(emp);
+    saveEmployees(employees);
+    switchEmployee(emp.id);
+  }
+
+  function deleteCurrentEmployee() {
+    if (employees.length <= 1) { alert('최소 1명은 있어야 해요.'); return; }
+    var emp = getCurrentEmployee();
+    if (!confirm(emp.name + ' 직원을 삭제할까요? 근무 기록도 함께 삭제됩니다.')) return;
+    localStorage.removeItem(REC_PREFIX + emp.id);
+    employees = employees.filter(function (e) { return e.id !== emp.id; });
+    saveEmployees(employees);
+    switchEmployee(employees[0].id);
+  }
+
   // ---------- init ----------
   function init() {
-    document.getElementById('hourlyWage').value = settings.hourlyWage;
-    document.getElementById('userName').value = settings.name;
-    document.getElementById('weekStart').value = settings.weekStart;
+    document.getElementById('weekStart').value = sharedSettings.weekStart;
     document.getElementById('workDate').value = fmtDate(new Date());
 
-    document.getElementById('hourlyWage').addEventListener('change', function (e) {
-      settings.hourlyWage = Number(e.target.value) || 0;
-      saveSettings(settings);
-      renderAll();
-    });
-    document.getElementById('userName').addEventListener('change', function (e) {
-      settings.name = e.target.value;
-      saveSettings(settings);
+    document.getElementById('empName').addEventListener('change', function (e) {
+      var emp = getCurrentEmployee();
+      emp.name = e.target.value.trim() || emp.name;
+      e.target.value = emp.name;
+      saveEmployees(employees);
+      renderEmployeeBar();
       renderPayslip();
     });
+    document.getElementById('hourlyWage').addEventListener('change', function (e) {
+      getCurrentEmployee().hourlyWage = Number(e.target.value) || 0;
+      saveEmployees(employees);
+      renderAll();
+    });
     document.getElementById('weekStart').addEventListener('change', function (e) {
-      settings.weekStart = Number(e.target.value);
-      saveSettings(settings);
+      sharedSettings.weekStart = Number(e.target.value);
+      saveSharedSettings(sharedSettings);
       renderAll();
     });
     document.getElementById('toggleAdvanced').addEventListener('click', function () {
       var panel = document.getElementById('advancedSettings');
       panel.classList.toggle('hidden');
       this.textContent = panel.classList.contains('hidden') ? '추가 설정 ▾' : '추가 설정 ▴';
+    });
+    document.getElementById('deleteEmployeeBtn').addEventListener('click', deleteCurrentEmployee);
+
+    document.getElementById('employeeBar').addEventListener('click', function (e) {
+      var btn = e.target.closest('.employee-pill');
+      if (!btn) return;
+      if (btn.id === 'addEmployeeBtn') { addEmployee(); return; }
+      if (btn.dataset.id !== currentEmployeeId) switchEmployee(btn.dataset.id);
     });
 
     document.querySelectorAll('.tab-btn').forEach(function (btn) {
@@ -292,7 +401,7 @@
       }
 
       records[dateStr] = { start: start, end: end, breakMinutes: breakMinutes };
-      saveRecords(records);
+      persistRecords();
 
       var d = parseDate(dateStr);
       viewYear = d.getFullYear();
@@ -323,7 +432,7 @@
         var dd = delBtn.dataset.date;
         if (confirm(dd + ' 기록을 삭제할까요?')) {
           delete records[dd];
-          saveRecords(records);
+          persistRecords();
           renderAll();
         }
       }

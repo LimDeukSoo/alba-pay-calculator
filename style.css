@@ -113,6 +113,45 @@ input:focus, select:focus {
   display: none !important;
 }
 
+.danger-link {
+  display: block;
+  color: var(--danger);
+  margin-top: 12px;
+}
+
+.employee-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  margin-bottom: 12px;
+}
+
+.employee-pill {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.employee-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.employee-pill.add-pill {
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  color: var(--accent);
+}
+
 .tabs {
   display: flex;
   gap: 8px;

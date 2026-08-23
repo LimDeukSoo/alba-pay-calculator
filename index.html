@@ -12,7 +12,13 @@
       <h1>알바 시급계산기</h1>
     </header>
 
+    <div class="employee-bar" id="employeeBar"></div>
+
     <section class="card settings-card">
+      <div class="settings-row">
+        <label for="empName">직원 이름</label>
+        <input type="text" id="empName" placeholder="예: 김알바">
+      </div>
       <div class="settings-row">
         <label for="hourlyWage">시급</label>
         <div class="input-with-unit">
@@ -25,16 +31,13 @@
       <button type="button" id="toggleAdvanced" class="link-btn">추가 설정 ▾</button>
       <div id="advancedSettings" class="advanced-settings hidden">
         <div class="settings-row">
-          <label for="userName">이름 / 사업장명</label>
-          <input type="text" id="userName" placeholder="선택 입력 (명세서에 표시됩니다)">
-        </div>
-        <div class="settings-row">
-          <label for="weekStart">주휴수당 계산 기준 (한 주의 시작 요일)</label>
+          <label for="weekStart">주휴수당 계산 기준 (한 주의 시작 요일, 전체 직원 공통)</label>
           <select id="weekStart">
             <option value="1">월요일 시작</option>
             <option value="0">일요일 시작</option>
           </select>
         </div>
+        <button type="button" id="deleteEmployeeBtn" class="link-btn danger-link">이 직원 삭제</button>
       </div>
     </section>
 
