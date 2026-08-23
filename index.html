@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>알바 시급계산기</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>알바 시급계산기</h1>
+    </header>
+
+    <section class="card settings-card">
+      <div class="settings-row">
+        <label for="hourlyWage">시급</label>
+        <div class="input-with-unit">
+          <input type="number" id="hourlyWage" min="0" step="10">
+          <span>원</span>
+        </div>
+      </div>
+      <p class="hint">2026년 최저시급은 10,320원이에요. 실제 받는 시급으로 바꿔주세요.</p>
+
+      <button type="button" id="toggleAdvanced" class="link-btn">추가 설정 ▾</button>
+      <div id="advancedSettings" class="advanced-settings hidden">
+        <div class="settings-row">
+          <label for="userName">이름 / 사업장명</label>
+          <input type="text" id="userName" placeholder="선택 입력 (명세서에 표시됩니다)">
+        </div>
+        <div class="settings-row">
+          <label for="weekStart">주휴수당 계산 기준 (한 주의 시작 요일)</label>
+          <select id="weekStart">
+            <option value="1">월요일 시작</option>
+            <option value="0">일요일 시작</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button type="button" class="tab-btn active" data-tab="entry">근무 기록</button>
+      <button type="button" class="tab-btn" data-tab="payslip">급여명세서</button>
+    </nav>
+
+    <section id="tab-entry" class="tab-panel active">
+      <div class="card">
+        <h2 id="formTitle">근무 기록 입력</h2>
+        <form id="entryForm">
+          <input type="hidden" id="editingDate" value="">
+          <div class="form-row">
+            <label for="workDate">날짜</label>
+            <input type="date" id="workDate" required>
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label for="startTime">출근</label>
+              <input type="time" id="startTime" required>
+            </div>
+            <div>
+              <label for="endTime">퇴근</label>
+              <input type="time" id="endTime" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="breakMinutes">휴게시간 (분)</label>
+            <input type="number" id="breakMinutes" min="0" step="5" value="0">
+          </div>
+          <div class="form-actions">
+            <button type="submit" id="saveBtn">저장</button>
+            <button type="button" id="cancelEditBtn" class="secondary hidden">취소</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="list-header">
+          <h2>근무 기록</h2>
+          <div class="month-nav" id="entryMonthNav">
+            <button type="button" data-dir="-1" aria-label="이전 달">‹</button>
+            <span id="entryMonthLabel"></span>
+            <button type="button" data-dir="1" aria-label="다음 달">›</button>
+          </div>
+        </div>
+        <div id="recordList" class="record-list"></div>
+      </div>
+    </section>
+
+    <section id="tab-payslip" class="tab-panel">
+      <div class="card">
+        <div class="list-header">
+          <div class="month-nav" id="payslipMonthNav">
+            <button type="button" data-dir="-1" aria-label="이전 달">‹</button>
+            <span id="payslipMonthLabel"></span>
+            <button type="button" data-dir="1" aria-label="다음 달">›</button>
+          </div>
+          <button type="button" id="printBtn">인쇄 / PDF저장</button>
+        </div>
+
+        <div id="payslip" class="payslip"></div>
+      </div>
+    </section>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
