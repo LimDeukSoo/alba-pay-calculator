@@ -53,7 +53,7 @@ body {
 }
 
 .settings-row label {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-muted);
 }
 
@@ -69,7 +69,7 @@ body {
 }
 
 .hint {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   margin: -4px 0 10px;
 }
@@ -97,15 +97,18 @@ input:focus, select:focus {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 15px;
   padding: 4px 0;
   cursor: pointer;
 }
 
+.settings-toggle {
+  display: inline-block;
+  margin: 0 0 12px 2px;
+}
+
 .advanced-settings {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  margin-top: 0;
 }
 
 .advanced-settings.hidden,
@@ -190,7 +193,7 @@ input:focus, select:focus {
 
 .form-row label {
   display: block;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-muted);
   margin-bottom: 6px;
 }

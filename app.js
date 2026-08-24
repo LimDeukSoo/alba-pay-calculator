@@ -363,7 +363,7 @@
     document.getElementById('toggleAdvanced').addEventListener('click', function () {
       var panel = document.getElementById('advancedSettings');
       panel.classList.toggle('hidden');
-      this.textContent = panel.classList.contains('hidden') ? '추가 설정 ▾' : '추가 설정 ▴';
+      this.textContent = panel.classList.contains('hidden') ? '설정 ▾' : '설정 ▴';
     });
     document.getElementById('deleteEmployeeBtn').addEventListener('click', deleteCurrentEmployee);
 
